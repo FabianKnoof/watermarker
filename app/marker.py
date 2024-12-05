@@ -1,3 +1,5 @@
+import base64
+import io
 import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -5,6 +7,7 @@ from time import sleep, time
 
 from PIL import Image
 from PIL.Image import Resampling
+from PIL.ImageFile import ImageFile
 
 
 class Marker:
@@ -26,18 +29,6 @@ class Marker:
                 images.append(dir_entry.path)
         self.images = images
         return len(images)
-
-    def set_images(self, images: list[str]) -> None:
-        self.images = images
-
-    def set_watermark(self, watermark_path: str) -> None:
-        self.watermark_path = watermark_path
-
-    def set_output_folder(self, output_folder: str) -> None:
-        self.output_folder = output_folder
-
-    def set_name_extension(self, name_extension: str) -> None:
-        self.name_extension = name_extension
 
     def place_markers(self) -> None:
         self.progress_total = len(self.images)
@@ -66,13 +57,23 @@ class Marker:
             )
 
     @staticmethod
-    def place_mark(
+    def place_mark_and_save(
             image_path: str,
             watermark_path: str,
             output_dir: str,
             name_extension: str,
             new_file_name: str | None = None) -> str:
+        image = Marker.get_marked_image(image_path, watermark_path)
         image_path = Path(image_path)
+
+        marked_file_name = new_file_name or f"{image_path.stem}{name_extension}{image_path.suffix}"
+        marked_file_path = Path(output_dir).joinpath(marked_file_name)
+        image.save(marked_file_path)
+
+        return str(marked_file_path)
+
+    @staticmethod
+    def get_marked_image(image_path: str, watermark_path: str) -> ImageFile:
         image = Image.open(image_path)
         watermark = Image.open(watermark_path)
 
@@ -92,10 +93,13 @@ class Marker:
             for i in range(repeats):
                 image.paste(watermark, (offset + i * watermark.width, 0), watermark)
 
-        marked_file_name = new_file_name or f"{image_path.stem}{name_extension}{image_path.suffix}"
-        marked_file_path = Path(output_dir).joinpath(marked_file_name)
-        image.save(marked_file_path)
-        return str(marked_file_path)
+        return image
+
+    @staticmethod
+    def convert_to_base64(image: ImageFile) -> str:
+        buffered = io.BytesIO()
+        image.save(buffered, image.format.lower())
+        return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
     @staticmethod
     def pretty_format_time(seconds: float) -> str:
