@@ -10,10 +10,19 @@ from marker import Marker
 class MarkerApp:
 
     def __init__(self, page: Page, marker: Marker) -> None:
-        page.client_storage.clear()
+        # page.client_storage.clear()
 
         self._page = page
         self._marker = marker
+
+        self._error_alert = ft.Banner(
+            content=ft.Text("Oops, something didn't go right. Please check the logs.", color=ft.colors.BLACK),
+            leading=ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, color=ft.colors.AMBER),
+            bgcolor=ft.colors.AMBER_100,
+            actions=[ft.TextButton(
+                "Ok", style=ft.ButtonStyle(color=ft.colors.BLUE), on_click=lambda _: self._page.close(self._error_alert)
+            )]
+        )
 
         self._preview = Preview("assets/preview-placeholder.png", self._marker)
         self._user_input = UserInput(self._page, self._marker, self._preview)
@@ -35,6 +44,7 @@ class MarkerApp:
             )
         )
 
+    def load_data(self):
         self._user_input.load_data()
 
     def page_resized(self, e: ft.WindowResizeEvent):
@@ -42,3 +52,6 @@ class MarkerApp:
             int(e.width - self._user_input.width - self._padding), int(e.height - self._padding)
         )
         self._preview.update()
+
+    def error(self):
+        self._page.open(self._error_alert)

@@ -31,8 +31,9 @@ class Preview(ft.Stack):
 
     def show_marked_image(self, image_path: str) -> None:
         self.loading(True)
-        image = self._marker.get_marked_image(image_path, self._marker.watermark_path)
-        self.show_image_base64(self._marker.convert_to_base64(image))
+        image_base64 = self._marker.get_preview_image_base64(image_path)
+        if image_base64:
+            self.show_image_base64(image_base64)
         self.loading(False)
 
     def resize(self, width: int, height: int) -> None:

@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import flet as ft
-from PIL import Image
 
 from controls.preview import Preview
 from marker import Marker
@@ -113,16 +112,21 @@ class UserInput(ft.Column):
         if e.path:
             images_amount = self._marker.find_images(e.path)
 
-            self._update_preview(self._marker.images[0])
+            if images_amount:
+                self._update_preview()
 
-            self._set_images_text(e.path, images_amount)
-            self._safe_images_paths(e.path)
+                self._set_images_text(e.path, images_amount)
+                self._safe_images_paths(e.path)
+            else:
+                self.images_text_field.error_text = "No images found in the folder"
+                self.images_text_field.update()
+
 
     def _on_images_picker_result(self, e: ft.FilePickerResultEvent) -> None:
         if e.files:
             self._marker.images = [file.path for file in e.files]
 
-            self._update_preview(self._marker.images[0])
+            self._update_preview()
 
             self._set_images_text([vars(file) for file in e.files], len(e.files))
             self._safe_images_paths(e.files)
@@ -135,7 +139,7 @@ class UserInput(ft.Column):
             self.watermark_text_field.update()
 
             self._page.client_storage.set("watermarker.watermark", e.files[0].path)
-            self._update_preview(self._marker.images[0])
+            self._update_preview()
 
     def _on_output_folder_picker_result(self, e: ft.FilePickerResultEvent) -> None:
         if e.path:
@@ -143,6 +147,8 @@ class UserInput(ft.Column):
             self.output_folder_text_field.value = e.path
             self.output_folder_text_field.error_text = ""
             self.output_folder_text_field.update()
+
+            # TODO notify if folder not empty
 
             self._page.client_storage.set("watermarker.output_folder", e.path)
 
@@ -160,17 +166,21 @@ class UserInput(ft.Column):
         self.images_text_field.error_text = ""
         self.images_text_field.update()
 
-    def _update_preview(self, image_path: str) -> None:
-        if self.images_text_field.value and self.watermark_text_field.value:
-            self._preview.show_marked_image(image_path)
+    def _update_preview(self) -> None:
+        if self.images_text_field.value:
+            if self.watermark_text_field.value:
+                self._preview.show_marked_image(self._marker.images[0])
+            else:
+                self._preview.show_image(self._marker.images[0])
         else:
-            self._preview.show_image_base64(self._marker.convert_to_base64(Image.open(self._marker.images[0])))
+            self._preview.show_image("assets/preview-placeholder.png")
 
     def load_data(self) -> None:
         self._load_images_paths()
         self._load_watermark_path()
         self._load_output_folder_path()
         self._load_name_extension()
+        self._update_preview()
 
     def _load_images_paths(self) -> None:
         if images_data := self._page.client_storage.get("watermarker.images"):
@@ -181,15 +191,11 @@ class UserInput(ft.Column):
 
             self._set_images_text(images_data, len(images_data))
 
-            self._update_preview(self._marker.images[0])
-
     def _load_watermark_path(self) -> None:
         if watermark_path := self._page.client_storage.get("watermarker.watermark"):
             self._marker.watermark_path = watermark_path
             self.watermark_text_field.value = watermark_path
             self.watermark_text_field.update()
-
-            self._update_preview(self._marker.images[0])
 
     def _load_output_folder_path(self) -> None:
         if output_folder_path := self._page.client_storage.get("watermarker.output_folder"):
