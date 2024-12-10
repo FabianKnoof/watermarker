@@ -53,5 +53,7 @@ class MarkerApp:
         )
         self._preview.update()
 
+    #     TODO Improve resize
+
     def error(self):
         self._page.open(self._error_alert)

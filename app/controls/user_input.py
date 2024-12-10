@@ -124,7 +124,7 @@ class UserInput(ft.Column):
 
     def _on_images_picker_result(self, e: ft.FilePickerResultEvent) -> None:
         if e.files:
-            self._marker.images = [file.path for file in e.files]
+            self._marker.images_todo = [file.path for file in e.files]
 
             self._update_preview()
 
@@ -169,9 +169,9 @@ class UserInput(ft.Column):
     def _update_preview(self) -> None:
         if self.images_text_field.value:
             if self.watermark_text_field.value:
-                self._preview.show_marked_image(self._marker.images[0])
+                self._preview.show_marked_image(self._marker.images_todo[0])
             else:
-                self._preview.show_image(self._marker.images[0])
+                self._preview.show_image(self._marker.images_todo[0])
         else:
             self._preview.show_image("assets/preview-placeholder.png")
 
@@ -185,7 +185,7 @@ class UserInput(ft.Column):
     def _load_images_paths(self) -> None:
         if images_data := self._page.client_storage.get("watermarker.images"):
             if isinstance(images_data, list):
-                self._marker.images = [file["path"] for file in images_data]
+                self._marker.images_todo = [file["path"] for file in images_data]
             else:
                 self._marker.find_images(images_data)
 
