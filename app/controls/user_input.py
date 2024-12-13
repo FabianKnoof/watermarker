@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import flet as ft
@@ -121,7 +122,6 @@ class UserInput(ft.Column):
                 self.images_text_field.error_text = "No images found in the folder"
                 self.images_text_field.update()
 
-
     def _on_images_picker_result(self, e: ft.FilePickerResultEvent) -> None:
         if e.files:
             self._marker.images_todo = [file.path for file in e.files]
@@ -143,14 +143,34 @@ class UserInput(ft.Column):
 
     def _on_output_folder_picker_result(self, e: ft.FilePickerResultEvent) -> None:
         if e.path:
-            self._marker.output_folder = e.path
-            self.output_folder_text_field.value = e.path
-            self.output_folder_text_field.error_text = ""
-            self.output_folder_text_field.update()
+            if self._output_folder_ist_empty(e.path):
+                self._update_output_folder(e.path)
+            else:
+                output_folder_not_empty_alert = ft.AlertDialog(
+                    title=ft.Text("Output folder is not empty. Do you still want to use it?"), content=ft.Text(
+                        "If resulting images have the same name as images already in "
+                        "the output folder, they will overwrite them!"
+                    ), actions=[ft.TextButton(
+                        "Yes",
+                        on_click=lambda _: self._output_folder_alert_dialog(output_folder_not_empty_alert, e.path)
+                    ), ft.TextButton("No", on_click=lambda _: self._page.close(output_folder_not_empty_alert))]
+                )
+                self._page.open(output_folder_not_empty_alert)
 
-            # TODO notify if folder not empty
+    @staticmethod
+    def _output_folder_ist_empty(path: str):
+        return not any(os.scandir(path))
 
-            self._page.client_storage.set("watermarker.output_folder", e.path)
+    def _output_folder_alert_dialog(self, alert: ft.AlertDialog, path: str) -> None:
+        self._page.close(alert)
+        self._update_output_folder(path)
+
+    def _update_output_folder(self, path: str) -> None:
+        self._marker.output_folder = path
+        self.output_folder_text_field.value = path
+        self.output_folder_text_field.error_text = ""
+        self.output_folder_text_field.update()
+        self._page.client_storage.set("watermarker.output_folder", path)
 
     def _on_change_name_extension(self, e: ft.ControlEvent):
         self._marker.name_extension = e.control.value
