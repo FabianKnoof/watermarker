@@ -2,12 +2,13 @@ import base64
 import io
 import logging
 import os
-import traceback
 from concurrent.futures import Future, ThreadPoolExecutor
 from enum import Enum
 from logging import Logger
 from pathlib import Path
+from threading import Thread
 from time import sleep
+from typing import Literal
 
 from PIL import Image
 from PIL.Image import Resampling
@@ -20,10 +21,19 @@ class MarkerState(Enum):
     PAUSING = "pausing"
     PAUSED = "paused"
     CANCELING = "canceling"
-    CANCELED = "canceled"
+
+
+class StateChangeError(Exception):
+
+    def __init__(
+            self, message: str, from_state: MarkerState, to_state: MarkerState | Literal["run", "pause", "cancel"]):
+        super().__init__(message)
+        self.from_state = from_state
+        self.to_state = to_state
 
 
 class Marker:
+
     def __init__(self, logger: Logger, max_workers: int = max(1, os.cpu_count() - 2)):
         self._max_workers = max_workers
         self._logger = logger
@@ -41,47 +51,31 @@ class Marker:
     def state(self):
         return self._state
 
-    def pause(self):
-        self._state = MarkerState.PAUSING
+    def set_state(self, new_state: Literal["run", "pause", "cancel"]) -> None:
+        match new_state:
+            case "run" if self.state in [MarkerState.IDLE, MarkerState.PAUSED]:
+                missing_items = [item for item, condition in
+                                 [("images", self.images_todo), ("watermark", self.watermark_path),
+                                  ("output folder", self.output_folder)] if not condition]
+                if missing_items:
+                    raise StateChangeError(
+                        f"Missing {', '.join(missing_items)}", self.state, MarkerState.RUNNING
+                    )
+                self._state = MarkerState.RUNNING
+                Thread(target=self._run).start()
+            case "pause" if self.state == MarkerState.RUNNING:
+                self._state = MarkerState.PAUSING
+            case "cancel" if self.state == MarkerState.RUNNING:
+                self._state = MarkerState.CANCELING
+            case "cancel" if self.state == MarkerState.PAUSED:
+                self.images_todo.extend(self.images_done)
+                self._state = MarkerState.IDLE
+            case _:
+                raise StateChangeError(
+                    f"Can't do state change from {self._state} to {new_state}", self._state, new_state
+                )
 
-    def cancel(self):
-        self._state = MarkerState.CANCELING
-
-    #         TODO Implement cancel when paused
-
-    def find_images(self, folder: str) -> int:
-        images = []
-        if self._state == MarkerState.IDLE:
-            for dir_entry in os.scandir(folder):
-                if dir_entry.is_file() and Path(dir_entry).suffix in [".jpg", ".png", ".jpeg"]:
-                    images.append(dir_entry.path)
-            self.images_todo = images
-        return len(images)
-
-    def get_preview_image_base64(self, image_path: str) -> str | None:
-        if not self.watermark_path:
-            return None
-        try:
-            image = self._get_marked_image(image_path, self.watermark_path)
-            image_base64 = self.convert_to_base64(image)
-            image.close()
-            return image_base64
-        except Exception as e:
-            self._logger.error("Error placing watermark!")
-            self._logger.error(f"{image_path=}, {self.watermark_path=}")
-            self._logger.error(e)
-            self._logger.error("\n" + traceback.format_exc())
-            return None
-
-    def run(self) -> None:
-        if not self.images_todo or not self.watermark_path or not self.output_folder:
-            raise ValueError("Missing images, watermark or output folder")
-        if self.state == MarkerState.RUNNING:
-            return
-        if self.state == MarkerState.CANCELED:
-            self.images_todo.extend(self.images_done)
-        self._state = MarkerState.RUNNING
-
+    def _run(self) -> None:
         with ThreadPoolExecutor(max_workers=self._max_workers) as executor:
             futures: list[Future] = [executor.submit(
                 Marker._place_mark_and_save,
@@ -92,7 +86,8 @@ class Marker:
                 self._logger
             ) for image in self.images_todo]
 
-            marked_image_base64 = None
+            marked_image_base64 = self.image_for_preview_base64
+            # TODO Improve marked_image_base64 and preview assignment
             while futures:
                 sleep(0.2)
                 if self.state in [MarkerState.PAUSING, MarkerState.CANCELING]:
@@ -104,32 +99,51 @@ class Marker:
                         self.images_done.append(image_path)
                         self.images_todo.remove(image_path)
                 self.image_for_preview_base64 = marked_image_base64
-                if self.state in [MarkerState.PAUSING, MarkerState.CANCELING]:
-                    break
-        self._state_after_run()
-
-    def _state_after_run(self):
-        if not self.images_todo:
+                if self.state == MarkerState.PAUSING:
+                    self._state = MarkerState.PAUSED
+                    return
+                elif self.state == MarkerState.CANCELING:
+                    self.images_todo.extend(self.images_done)
+                    self._state = MarkerState.IDLE
+                    return
             self._state = MarkerState.IDLE
-        elif self.state == MarkerState.PAUSING:
-            self._state = MarkerState.PAUSED
-        elif self.state == MarkerState.CANCELING:
-            self._state = MarkerState.CANCELED
+
+    def find_images(self, folder: str) -> int:
+        images = []
+        if self.state == MarkerState.IDLE:
+            for dir_entry in os.scandir(folder):
+                if dir_entry.is_file() and Path(dir_entry).suffix in [".jpg", ".png", ".jpeg"]:
+                    images.append(dir_entry.path)
+            self.images_todo = images
+        return len(images)
+
+    def get_preview_image_base64(self, image_path: str) -> str | None:
+        if not self.watermark_path:
+            return None
+        # noinspection PyBroadException
+        try:
+            image = self._get_marked_image(image_path, self.watermark_path)
+            image_base64 = self.convert_to_base64(image)
+            image.close()
+            return image_base64
+        except Exception:
+            self._logger.error("Error placing watermark!", exc_info=True)
+            self._logger.error(f"{image_path=}, {self.watermark_path=}")
+            return None
 
     @staticmethod
     def _place_mark_and_save(
             image_path: str, watermark_path: str, output_dir: str, name_extension: str, logger: logging.Logger) -> (
             str, str, str):
+        # noinspection PyBroadException
         try:
             marked_image = Marker._get_marked_image(image_path, watermark_path)
             marked_image_path = Marker._save_image(marked_image, output_dir, name_extension)
             marked_image_base64 = Marker.convert_to_base64(marked_image)
             marked_image.close()
-        except Exception as e:
-            logger.error("Error placing watermark!")
-            logger.error(f"{image_path=}, {watermark_path=}, {output_dir=}, {name_extension=}")
-            logger.error(e)
-            logger.error(traceback.format_exc())
+        except Exception:
+            logger.error("Error placing watermark!", exc_info=True)
+            logger.error(f"{image_path=}, {watermark_path=}")
             marked_image_base64 = ""
             marked_image_path = ""
         return marked_image_base64, marked_image_path, image_path

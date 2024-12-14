@@ -1,3 +1,5 @@
+from logging import Logger
+
 import flet as ft
 from flet.core.page import Page
 
@@ -9,11 +11,12 @@ from marker import Marker
 
 class MarkerApp:
 
-    def __init__(self, page: Page, marker: Marker) -> None:
+    def __init__(self, page: Page, marker: Marker, logger: Logger) -> None:
         # page.client_storage.clear()
 
         self._page = page
         self._marker = marker
+        self._logger = logger
 
         self._error_alert = ft.Banner(
             content=ft.Text("Oops, something didn't go right. Please check the logs.", color=ft.colors.BLACK),
@@ -26,7 +29,7 @@ class MarkerApp:
 
         self._preview = Preview("assets/preview-placeholder.png", self._marker)
         self._user_input = UserInput(self._page, self._marker, self._preview)
-        self._marker_run = MarkerRun(self._page, self._marker, self._preview, self._user_input)
+        self._marker_run = MarkerRun(self._page, self._marker, self._logger, self._preview, self._user_input)
         self._marker_run.width = self._user_input.width
 
         self._padding = 50

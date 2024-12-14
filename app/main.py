@@ -20,7 +20,7 @@ def main(page: Page):
         datefmt="%Y-%m-%d %H:%M:%S%z"
     )
     marker = Marker(logger)
-    marker_app = MarkerApp(page, marker)
+    marker_app = MarkerApp(page, marker, logger)
     logger.addHandler(MarkerLoggerHandler(log_file_name, marker_app))
     marker_app.load_data()
 
