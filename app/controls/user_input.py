@@ -18,6 +18,8 @@ class UserInput(ft.Column):
         pick_buttons_width = 170
         text_fields_width = 500
 
+        # TODO Add tooltips
+
         image_folder_picker = ft.FilePicker(on_result=self._on_image_folder_picker_result)
         page.overlay.append(image_folder_picker)
         pick_image_folder_button = ft.FilledTonalButton(
@@ -123,12 +125,13 @@ class UserInput(ft.Column):
                 self.images_text_field.update()
 
     def _on_images_picker_result(self, e: ft.FilePickerResultEvent) -> None:
+        # TODO Fix display not correct
         if e.files:
             self._marker.images = [file.path for file in e.files]
 
             self._update_preview()
 
-            self._set_images_text([file for file in e.files], len(self._marker.images))
+            self._set_images_text([file for file in e.files], len(e.files))
             self._safe_images_paths(e.files)
 
     def _on_watermark_picker_result(self, e: ft.FilePickerResultEvent) -> None:
@@ -147,12 +150,15 @@ class UserInput(ft.Column):
                 self._update_output_folder(e.path)
             else:
                 output_folder_not_empty_alert = ft.AlertDialog(
-                    title=ft.Text("Output folder is not empty. Do you still want to use it?"), content=ft.Text(
+                    title=ft.Text("Output folder is not empty. Do you still want to use it?"),
+                    content=ft.Text(
                         "If resulting images have the same name as images already in "
                         "the output folder, they will overwrite them!"
-                    ), actions=[ft.TextButton(
+                    ),
+                    actions=[ft.TextButton(
                         "Yes", on_click=lambda _: self._output_folder_alert_yes(output_folder_not_empty_alert, e.path)
-                    ), ft.TextButton("No", on_click=lambda _: self._page.close(output_folder_not_empty_alert))]
+                    ), ft.TextButton("No", on_click=lambda _: self._page.close(output_folder_not_empty_alert))],
+                    modal=True
                 )
                 self._page.open(output_folder_not_empty_alert)
 

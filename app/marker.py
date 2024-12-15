@@ -135,10 +135,9 @@ class Marker:
             return None
         # noinspection PyBroadException
         try:
-            image = self._get_marked_image(image_path, self.watermark_path)
-            image_base64 = self.convert_to_base64(image)
-            image.close()
-            return image_base64
+            with self._get_marked_image(image_path, self.watermark_path) as image:
+                image_base64 = self.convert_to_base64(image)
+                return image_base64
         except Exception:
             self._logger.error("Error placing watermark!", exc_info=True)
             self._logger.error(f"{image_path=}, {self.watermark_path=}")
@@ -150,10 +149,9 @@ class Marker:
             str, str, str):
         # noinspection PyBroadException
         try:
-            marked_image = Marker._get_marked_image(image_path, watermark_path)
-            marked_image_path = Marker._save_image(marked_image, output_dir, name_extension)
-            marked_image_base64 = Marker.convert_to_base64(marked_image)
-            marked_image.close()
+            with Marker._get_marked_image(image_path, watermark_path) as marked_image:
+                marked_image_path = Marker._save_image(marked_image, output_dir, name_extension)
+                marked_image_base64 = Marker.convert_to_base64(marked_image)
         except Exception:
             logger.error("Error placing watermark!", exc_info=True)
             logger.error(f"{image_path=}, {watermark_path=}")
@@ -169,26 +167,35 @@ class Marker:
         return str(marked_file_path)
 
     @staticmethod
-    def _get_marked_image(image_path: str, watermark_path: str) -> ImageFile:
+    def _get_marked_image(
+            image_path: str,
+            watermark_path: str,
+            padding_horizontal: int = 0,
+            padding_vertical: int = 2000) -> ImageFile:
         image = Image.open(image_path)
         with Image.open(watermark_path) as watermark:
-            ratio = image.width / watermark.width
-            repeats = int(image.height / (watermark.height * ratio))
+            ratio_width = image.width / watermark.width
+            watermark_scaled_height = int(watermark.height * ratio_width)
+            repeats_vertical = int((image.height - padding_vertical) / (watermark_scaled_height + padding_vertical))
+            print(f"{repeats_vertical=}")
+            # TODO Make Padding
 
-            # TODO padding for watermark
-
-            if repeats >= 1:
-                watermark = watermark.resize((image.width, int(watermark.height * ratio)), resample=Resampling.LANCZOS)
-                offset = (image.height - (repeats * watermark.height)) // 2
-                for i in range(repeats):
-                    image.paste(watermark, (0, offset + i * watermark.height), watermark)
+            if repeats_vertical >= 1:
+                watermark = watermark.resize((image.width, watermark_scaled_height), resample=Resampling.LANCZOS)
+                offset = (image.height - (repeats_vertical * watermark.height)) // 2 - padding_vertical
+                for i in range(repeats_vertical):
+                    image.paste(watermark, (0, offset + i * (watermark.height + padding_vertical)), watermark)
             else:
-                ratio = image.height / watermark.height
-                watermark = watermark.resize((int(watermark.width * ratio), image.height), resample=Resampling.LANCZOS)
-                repeats = image.width // watermark.width
-                offset = (image.width - (repeats * watermark.width)) // 2
-                for i in range(repeats):
-                    image.paste(watermark, (offset + i * watermark.width, 0), watermark)
+                ratio_height = image.height / watermark.height
+                watermark_scaled_width = int(watermark.width * ratio_height)
+                watermark = watermark.resize((watermark_scaled_width, image.height), resample=Resampling.LANCZOS)
+
+                repeats_horizontal = int(
+                    (image.width - padding_horizontal) / (watermark_scaled_width + padding_horizontal)
+                )
+                offset = (image.width - (repeats_horizontal * watermark.width)) // 2 - padding_horizontal
+                for i in range(repeats_vertical):
+                    image.paste(watermark, (offset + i * (watermark.width + padding_horizontal), 0), watermark)
         return image
 
     @staticmethod
