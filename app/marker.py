@@ -175,6 +175,8 @@ class Marker:
             ratio = image.width / watermark.width
             repeats = int(image.height / (watermark.height * ratio))
 
+            # TODO padding for watermark
+
             if repeats >= 1:
                 watermark = watermark.resize((image.width, int(watermark.height * ratio)), resample=Resampling.LANCZOS)
                 offset = (image.height - (repeats * watermark.height)) // 2

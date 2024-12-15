@@ -34,11 +34,22 @@ class MarkerRun(ft.Row):
 
         self.alignment = ft.MainAxisAlignment.CENTER
 
-    def _run(self, _):
-        if self._missing_user_input():
-            return
+    def _run(self, _, checks: bool = True):
+        if checks:
+            if self._missing_user_input():
+                return
+            if not self._user_input.output_folder_is_empty(self._marker.output_folder):
+                output_folder_not_empty_alert = ft.AlertDialog(
+                    title=ft.Text("Output folder is not empty. Do you still want to use it?"), content=ft.Text(
+                        "If resulting images have the same name as images already in the output folder, "
+                        "they will overwrite them!"
+                    ), actions=[ft.TextButton(
+                        "Yes", on_click=lambda _: self._output_folder_alert_yes(output_folder_not_empty_alert)
+                    ), ft.TextButton("No", on_click=lambda _: self._page.close(output_folder_not_empty_alert))]
+                )
+                self._page.open(output_folder_not_empty_alert)
+                return
 
-        # TODO Check output folder content
         self._disable_user_input_fields(True)
 
         try:
@@ -72,6 +83,10 @@ class MarkerRun(ft.Row):
             text_field.update()
             return True
         return False
+
+    def _output_folder_alert_yes(self, alert: ft.AlertDialog) -> None:
+        self._page.close(alert)
+        self._run(None, checks=False)
 
     def _start_progress_display(self):
         self._preview.loading(True)

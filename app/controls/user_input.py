@@ -143,7 +143,7 @@ class UserInput(ft.Column):
 
     def _on_output_folder_picker_result(self, e: ft.FilePickerResultEvent) -> None:
         if e.path:
-            if self._output_folder_ist_empty(e.path):
+            if self.output_folder_is_empty(e.path):
                 self._update_output_folder(e.path)
             else:
                 output_folder_not_empty_alert = ft.AlertDialog(
@@ -151,17 +151,16 @@ class UserInput(ft.Column):
                         "If resulting images have the same name as images already in "
                         "the output folder, they will overwrite them!"
                     ), actions=[ft.TextButton(
-                        "Yes",
-                        on_click=lambda _: self._output_folder_alert_dialog(output_folder_not_empty_alert, e.path)
+                        "Yes", on_click=lambda _: self._output_folder_alert_yes(output_folder_not_empty_alert, e.path)
                     ), ft.TextButton("No", on_click=lambda _: self._page.close(output_folder_not_empty_alert))]
                 )
                 self._page.open(output_folder_not_empty_alert)
 
     @staticmethod
-    def _output_folder_ist_empty(path: str):
+    def output_folder_is_empty(path: str) -> bool:
         return not any(os.scandir(path))
 
-    def _output_folder_alert_dialog(self, alert: ft.AlertDialog, path: str) -> None:
+    def _output_folder_alert_yes(self, alert: ft.AlertDialog, path: str) -> None:
         self._page.close(alert)
         self._update_output_folder(path)
 
