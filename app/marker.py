@@ -40,27 +40,38 @@ class Marker:
 
         self._state: MarkerState = MarkerState.IDLE
         self.image_for_preview_base64: str | None = None
+        self.UPDATE_INTERVAL = 0.2
 
-        self.images_todo: list[str] = []
-        self.images_done: list[str] = []
+        self.images: list[str] = []
+        self._images_todo: list[str] = []
+        self._images_done: list[str] = []
         self.watermark_path: str | None = None
         self.output_folder: str | None = None
         self.name_extension: str = ""
 
     @property
-    def state(self):
+    def state(self) -> MarkerState:
         return self._state
+
+    def amount_images_todo(self) -> int:
+        return len(self._images_todo)
+
+    def amount_images_done(self) -> int:
+        return len(self._images_done)
 
     def set_state(self, new_state: Literal["run", "pause", "cancel"]) -> None:
         match new_state:
             case "run" if self.state in [MarkerState.IDLE, MarkerState.PAUSED]:
-                missing_items = [item for item, condition in
-                                 [("images", self.images_todo), ("watermark", self.watermark_path),
-                                  ("output folder", self.output_folder)] if not condition]
-                if missing_items:
-                    raise StateChangeError(
-                        f"Missing {', '.join(missing_items)}", self.state, MarkerState.RUNNING
-                    )
+                if self.state == MarkerState.IDLE:
+                    missing_items = [item for item, condition in
+                                     [("images", self.images), ("watermark", self.watermark_path),
+                                      ("output folder", self.output_folder)] if not condition]
+                    if missing_items:
+                        raise StateChangeError(
+                            f"Missing {', '.join(missing_items)}", self.state, MarkerState.RUNNING
+                        )
+                    self._images_todo = self.images.copy()
+                    self._images_done = []
                 self._state = MarkerState.RUNNING
                 Thread(target=self._run).start()
             case "pause" if self.state == MarkerState.RUNNING:
@@ -68,7 +79,7 @@ class Marker:
             case "cancel" if self.state == MarkerState.RUNNING:
                 self._state = MarkerState.CANCELING
             case "cancel" if self.state == MarkerState.PAUSED:
-                self.images_todo.extend(self.images_done)
+                self._images_todo.extend(self._images_done)
                 self._state = MarkerState.IDLE
             case _:
                 raise StateChangeError(
@@ -84,38 +95,40 @@ class Marker:
                 self.output_folder,
                 self.name_extension,
                 self._logger
-            ) for image in self.images_todo]
+            ) for image in self._images_todo]
 
             marked_image_base64 = self.image_for_preview_base64
             # TODO Improve marked_image_base64 and preview assignment
             while futures:
-                sleep(0.2)
+                sleep(self.UPDATE_INTERVAL)
+
                 if self.state in [MarkerState.PAUSING, MarkerState.CANCELING]:
                     executor.shutdown(wait=True, cancel_futures=True)
+
+                finished_futures = []
                 for future in futures:
                     if future.done() and not future.cancelled():
-                        futures.remove(future)
+                        finished_futures.append(future)
                         marked_image_base64, _, image_path = future.result()
-                        self.images_done.append(image_path)
-                        self.images_todo.remove(image_path)
+                        self._images_done.append(image_path)
+                        self._images_todo.remove(image_path)
+                [futures.remove(finished_future) for finished_future in finished_futures]
                 self.image_for_preview_base64 = marked_image_base64
+
                 if self.state == MarkerState.PAUSING:
                     self._state = MarkerState.PAUSED
                     return
-                elif self.state == MarkerState.CANCELING:
-                    self.images_todo.extend(self.images_done)
+                elif not self._images_todo or self.state == MarkerState.CANCELING:
                     self._state = MarkerState.IDLE
                     return
-            self._state = MarkerState.IDLE
 
-    def find_images(self, folder: str) -> int:
+    @staticmethod
+    def find_images(folder: str) -> list[str]:
         images = []
-        if self.state == MarkerState.IDLE:
-            for dir_entry in os.scandir(folder):
-                if dir_entry.is_file() and Path(dir_entry).suffix in [".jpg", ".png", ".jpeg"]:
-                    images.append(dir_entry.path)
-            self.images_todo = images
-        return len(images)
+        for dir_entry in os.scandir(folder):
+            if dir_entry.is_file() and Path(dir_entry).suffix in [".jpg", ".png", ".jpeg"]:
+                images.append(dir_entry.path)
+        return images
 
     def get_preview_image_base64(self, image_path: str) -> str | None:
         if not self.watermark_path:

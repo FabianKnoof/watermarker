@@ -22,9 +22,11 @@ class MarkerRun(ft.Row):
 
         self._UPDATE_INTERVAL = 0.2
 
-        self._run_button = ft.ElevatedButton("Run", icon=ft.Icons.PLAY_CIRCLE, on_click=self._run, width=150)
-        self._pause_button = ft.IconButton(ft.Icons.PAUSE_CIRCLE, on_click=self._pause)
-        self._cancel_button = ft.IconButton(ft.Icons.STOP_CIRCLE, on_click=lambda _: self._cancel_alert())
+        self._run_button = ft.FilledButton("Run", icon=ft.Icons.PLAY_CIRCLE, on_click=self._run, width=150)
+        self._pause_button = ft.FilledButton(content=ft.Icon(ft.Icons.PAUSE_CIRCLE), on_click=self._pause)
+        self._cancel_button = ft.FilledButton(
+            content=ft.Icon(ft.Icons.STOP_CIRCLE), on_click=lambda _: self._cancel_alert()
+        )
         self._progress_bar = ft.ProgressBar(value=0, expand=True, height=10)
         self._progress_text = ft.Text("")
 
@@ -35,17 +37,14 @@ class MarkerRun(ft.Row):
     def _run(self, _):
         if self._missing_user_input():
             return
+
         # TODO Check output folder content
         self._disable_user_input_fields(True)
-        if self._marker.state == MarkerState.IDLE and not self._marker.images_todo and self._marker.images_done:
-            self._marker.images_todo = self._marker.images_done
-            self._marker.images_done = []
 
         try:
             self._marker.set_state("run")
         except StateChangeError as e:
             self._logger.error(e, exc_info=True)
-        self._preview.loading(True)
         self._start_progress_display()
 
         while self._marker.state == MarkerState.RUNNING:
@@ -75,20 +74,18 @@ class MarkerRun(ft.Row):
         return False
 
     def _start_progress_display(self):
-        done = len(self._marker.images_done)
-        total = len(self._marker.images_todo) + done
-        self._progress_text.value = (f"{done:{len(str(total))}}/"
-                                     f"{total:{len(str(total))}} Images marked")
+        self._preview.loading(True)
         self.controls = [self._progress_bar, self._progress_text, self._pause_button, self._cancel_button]
         self.update()
+        self._update_progress_display()
 
     def _update_progress_display(self) -> None:
-        done = len(self._marker.images_done)
-        total = len(self._marker.images_todo) + done
+        done = self._marker.amount_images_done()
+        total = self._marker.amount_images_todo() + done
         self._progress_text.value = (f"{done:{len(str(total))}}/"
                                      f"{total:{len(str(total))}} Images marked")
         self._progress_text.update()
-        self._progress_bar.value = done / len(self._marker.images_todo)
+        self._progress_bar.value = done / total
         self._progress_bar.update()
 
     def _pause(self, _):
@@ -97,21 +94,30 @@ class MarkerRun(ft.Row):
         except StateChangeError as e:
             self._logger.error(e, exc_info=True)
 
+        self._progress_bar.value = None
+        self._progress_text.value = "Pausing..."
+        self._pause_button.disabled = True
+        self._cancel_button.disabled = True
+        self._page.update(self._progress_bar, self._progress_text, self._pause_button, self._cancel_button)
+
         while self._marker.state == MarkerState.PAUSING:
-            self._progress_bar.value = None
-            self._progress_text.value = "Pausing..."
-            self._pause_button.disabled = True
-            self._cancel_button.disabled = True
             sleep(self._UPDATE_INTERVAL)
+
+        if self._marker.state == MarkerState.IDLE:
+            self._finished()
+            return
 
         self._pause_button.disabled = False
         self._cancel_button.disabled = False
+
         self._run_button.text = "Continue"
         self.controls = [ft.Text(
-            f"Paused ({len(self._marker.images_done)}/{len(self._marker.images_todo) + len(self._marker.images_done)} "
+            f"Paused ({self._marker.amount_images_done()}/"
+            f"{self._marker.amount_images_todo() + self._marker.amount_images_done()} "
             f"Images marked)"
         ), self._run_button, self._cancel_button]
         self.update()
+        self._preview.loading(False)
 
     def _cancel_alert(self):
         alert = ft.AlertDialog(
@@ -143,7 +149,7 @@ class MarkerRun(ft.Row):
     def _finished(self, canceled: bool = False):
         title_text = "Canceled" if canceled else "Done"
         content_text = (f"{'The process has been canceled. ' if canceled else ''}"
-                        f"{len(self._marker.images_done)} images have been marked.")
+                        f"{self._marker.amount_images_done()} images have been marked.")
 
         alert = ft.AlertDialog(
             actions=[ft.TextButton("Ok", on_click=lambda _: self._page.close(alert)), ft.TextButton(
@@ -153,14 +159,14 @@ class MarkerRun(ft.Row):
         self._page.open(alert)
 
         self._run_button.text = "Run"
-        self.controls = [self._run_button]
-        self._progress_bar.value = 0
-        self._progress_text.value = ""
+        self._pause_button.disabled = False
+        self._cancel_button.disabled = False
         self._disable_user_input_fields(False)
+        self.controls = [self._run_button]
+        self.update()
         if self._marker.image_for_preview_base64:
             self._preview.show_image_base64(self._marker.image_for_preview_base64)
         self._preview.loading(False)
-        self.update()
 
     def _open_output_and_close_alert(self, alert: ft.AlertDialog):
         Popen(r"explorer " + self._user_input.output_folder_text_field.value)

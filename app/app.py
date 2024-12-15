@@ -46,6 +46,7 @@ class MarkerApp:
                 vertical_alignment=ft.CrossAxisAlignment.START
             )
         )
+    #     TODO Add Alert on exit if not IDLE
 
     def load_data(self):
         self._user_input.load_data()
