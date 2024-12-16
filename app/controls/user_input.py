@@ -209,6 +209,7 @@ class UserInput(ft.Column):
 
     def _on_change_padding_around(self, e: ft.ControlEvent):
         self._marker.padding_around_watermarks = int(e.control.value)
+        # TODO Fix update when text is removed
         self._update_preview()
         self._page.client_storage.set("watermarker.padding_around", int(e.control.value))
 

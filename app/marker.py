@@ -182,34 +182,40 @@ class Marker:
             image_path: str, watermark_path: str, padding_around: int, padding_between: int) -> ImageFile:
         image = Image.open(image_path)
         with Image.open(watermark_path) as watermark:
-            # Calculate watermark dimensions assuming vertical stack
             watermark_scaled_width = image.width - 2 * padding_around
-            ratio = watermark_scaled_width / watermark.width
-            watermark_scaled_height = int(watermark.height * ratio)
-            relevant_dimension = watermark_scaled_height
+            ratio_width = watermark_scaled_width / watermark.width
+            watermark_scaled_height = int(watermark.height * ratio_width)
+            stack_vertically = True
 
-            # Adjust dimensions if vertical stack doesn't fit
             if (watermark_scaled_height + 2 * padding_around) > image.height:
+                stack_vertically = False
                 watermark_scaled_height = image.height - 2 * padding_around
-                ratio = watermark_scaled_height / watermark.height
-                watermark_scaled_width = int(watermark.width * ratio)
-                relevant_dimension = watermark_scaled_width
+                ratio_height = watermark_scaled_height / watermark.height
+                watermark_scaled_width = int(watermark.width * ratio_height)
 
             watermark = watermark.resize(
                 (watermark_scaled_width, watermark_scaled_height), resample=Resampling.LANCZOS
             )
-            repeats = int(
-                (image.height - 2 * padding_around + padding_between) / (relevant_dimension + padding_between)
-            )
-            offset = (image.height - (repeats * (relevant_dimension + padding_between) - padding_between)) // 2
+
+            if stack_vertically:
+                repeats = int(
+                    (image.height - 2 * padding_around + padding_between) / (watermark_scaled_height + padding_between)
+                )
+                offset = (image.height - (repeats * (watermark_scaled_height + padding_between) - padding_between)) // 2
+            else:
+                repeats = int(
+                    (image.width - 2 * padding_around + padding_between) / (watermark_scaled_width + padding_between)
+                )
+                offset = (image.width - (repeats * (watermark_scaled_width + padding_between) - padding_between)) // 2
 
             for repeat in range(repeats):
-                if relevant_dimension == watermark_scaled_height:
+                if stack_vertically:
                     position = (padding_around, offset + repeat * (watermark_scaled_height + padding_between))
                 else:
                     position = (offset + repeat * (watermark_scaled_width + padding_between), padding_around)
                 image.paste(watermark, position, watermark)
-            return image
+
+        return image
 
     @staticmethod
     def convert_to_base64(image: ImageFile) -> str:
