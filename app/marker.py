@@ -48,6 +48,8 @@ class Marker:
         self.watermark_path: str | None = None
         self.output_folder: str | None = None
         self.name_extension: str = ""
+        self.padding_around_watermarks: int = 0
+        self.padding_between_watermarks: int = 0
 
     @property
     def state(self) -> MarkerState:
@@ -94,6 +96,8 @@ class Marker:
                 self.watermark_path,
                 self.output_folder,
                 self.name_extension,
+                self.padding_around_watermarks,
+                self.padding_between_watermarks,
                 self._logger
             ) for image in self._images_todo]
 
@@ -135,7 +139,9 @@ class Marker:
             return None
         # noinspection PyBroadException
         try:
-            with self._get_marked_image(image_path, self.watermark_path) as image:
+            with self._get_marked_image(
+                    image_path, self.watermark_path, self.padding_around_watermarks, self.padding_between_watermarks
+            ) as image:
                 image_base64 = self.convert_to_base64(image)
                 return image_base64
         except Exception:
@@ -145,11 +151,16 @@ class Marker:
 
     @staticmethod
     def _place_mark_and_save(
-            image_path: str, watermark_path: str, output_dir: str, name_extension: str, logger: logging.Logger) -> (
-            str, str, str):
+            image_path: str,
+            watermark_path: str,
+            output_dir: str,
+            name_extension: str,
+            padding_around: int,
+            padding_between: int,
+            logger: logging.Logger) -> (str, str, str):
         # noinspection PyBroadException
         try:
-            with Marker._get_marked_image(image_path, watermark_path) as marked_image:
+            with Marker._get_marked_image(image_path, watermark_path, padding_around, padding_between) as marked_image:
                 marked_image_path = Marker._save_image(marked_image, output_dir, name_extension)
                 marked_image_base64 = Marker.convert_to_base64(marked_image)
         except Exception:
@@ -168,35 +179,37 @@ class Marker:
 
     @staticmethod
     def _get_marked_image(
-            image_path: str,
-            watermark_path: str,
-            padding_horizontal: int = 0,
-            padding_vertical: int = 2000) -> ImageFile:
+            image_path: str, watermark_path: str, padding_around: int, padding_between: int) -> ImageFile:
         image = Image.open(image_path)
         with Image.open(watermark_path) as watermark:
-            ratio_width = image.width / watermark.width
-            watermark_scaled_height = int(watermark.height * ratio_width)
-            repeats_vertical = int((image.height - padding_vertical) / (watermark_scaled_height + padding_vertical))
-            print(f"{repeats_vertical=}")
-            # TODO Make Padding
+            # Calculate watermark dimensions assuming vertical stack
+            watermark_scaled_width = image.width - 2 * padding_around
+            ratio = watermark_scaled_width / watermark.width
+            watermark_scaled_height = int(watermark.height * ratio)
+            relevant_dimension = watermark_scaled_height
 
-            if repeats_vertical >= 1:
-                watermark = watermark.resize((image.width, watermark_scaled_height), resample=Resampling.LANCZOS)
-                offset = (image.height - (repeats_vertical * watermark.height)) // 2 - padding_vertical
-                for i in range(repeats_vertical):
-                    image.paste(watermark, (0, offset + i * (watermark.height + padding_vertical)), watermark)
-            else:
-                ratio_height = image.height / watermark.height
-                watermark_scaled_width = int(watermark.width * ratio_height)
-                watermark = watermark.resize((watermark_scaled_width, image.height), resample=Resampling.LANCZOS)
+            # Adjust dimensions if vertical stack doesn't fit
+            if (watermark_scaled_height + 2 * padding_around) > image.height:
+                watermark_scaled_height = image.height - 2 * padding_around
+                ratio = watermark_scaled_height / watermark.height
+                watermark_scaled_width = int(watermark.width * ratio)
+                relevant_dimension = watermark_scaled_width
 
-                repeats_horizontal = int(
-                    (image.width - padding_horizontal) / (watermark_scaled_width + padding_horizontal)
-                )
-                offset = (image.width - (repeats_horizontal * watermark.width)) // 2 - padding_horizontal
-                for i in range(repeats_vertical):
-                    image.paste(watermark, (offset + i * (watermark.width + padding_horizontal), 0), watermark)
-        return image
+            watermark = watermark.resize(
+                (watermark_scaled_width, watermark_scaled_height), resample=Resampling.LANCZOS
+            )
+            repeats = int(
+                (image.height - 2 * padding_around + padding_between) / (relevant_dimension + padding_between)
+            )
+            offset = (image.height - (repeats * (relevant_dimension + padding_between) - padding_between)) // 2
+
+            for repeat in range(repeats):
+                if relevant_dimension == watermark_scaled_height:
+                    position = (padding_around, offset + repeat * (watermark_scaled_height + padding_between))
+                else:
+                    position = (offset + repeat * (watermark_scaled_width + padding_between), padding_around)
+                image.paste(watermark, position, watermark)
+            return image
 
     @staticmethod
     def convert_to_base64(image: ImageFile) -> str:
