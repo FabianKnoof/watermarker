@@ -32,6 +32,12 @@ class StateChangeError(Exception):
         self.to_state = to_state
 
 
+class MarkerRunError(Exception):
+
+    def __init__(self, message: str, ):
+        super().__init__(message)
+
+
 class Marker:
 
     def __init__(self, logger: Logger, max_workers: int = max(1, os.cpu_count() - 2)):
@@ -164,6 +170,8 @@ class Marker:
                 marked_image_path = Marker._save_image(marked_image, output_dir, name_extension)
                 marked_image_base64 = Marker.convert_to_base64(marked_image)
         except Exception:
+            if marked_image:
+                marked_image.close()
             logger.error("Error placing watermark!", exc_info=True)
             logger.error(f"{image_path=}, {watermark_path=}")
             marked_image_base64 = ""
@@ -193,6 +201,12 @@ class Marker:
                 ratio_height = watermark_scaled_height / watermark.height
                 watermark_scaled_width = int(watermark.width * ratio_height)
 
+            if watermark_scaled_height < 1 or watermark_scaled_width < 1:
+                raise MarkerRunError(
+                    f"Watermark is to small to be fitted after rescaling. Padding is probably to big.\n"
+                    f"{padding_around=}, {padding_between=}, {image_path}"
+                )
+
             watermark = watermark.resize(
                 (watermark_scaled_width, watermark_scaled_height), resample=Resampling.LANCZOS
             )
@@ -207,6 +221,12 @@ class Marker:
                     (image.width - 2 * padding_around + padding_between) / (watermark_scaled_width + padding_between)
                 )
                 offset = (image.width - (repeats * (watermark_scaled_width + padding_between) - padding_between)) // 2
+
+            if repeats < 1:
+                raise MarkerRunError(
+                    f"Could not fit watermark on image. Padding is probably to big.\n"
+                    f"{padding_around=}, {padding_between=}, {image_path}"
+                )
 
             for repeat in range(repeats):
                 if stack_vertically:
