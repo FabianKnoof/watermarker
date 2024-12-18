@@ -75,18 +75,16 @@ class UserInput(ft.Column):
             label="Name extension",
             hint_text="Name extension will be added to the output images name",
             input_filter=ft.InputFilter(allow=True, regex_string=r"^[a-zA-Z-_0-9]*$", replacement_string=""),
-            on_blur=self._on_change_name_extension,
+            on_blur=self._on_blur_name_extension,
             expand=True,
-            width=text_fields_width,
-            suffix=ft.Text(".png or .jpg or .jpeg")
-        )
+            width=text_fields_width, )
 
         self._padding_around_text_field = ft.TextField(
             label="Padding around watermarks",
             hint_text="Padding around watermarks in pixels. Padding may be decreased if the watermark can "
                       "otherwise not be placed.",
             input_filter=ft.InputFilter(allow=True, regex_string=r"^\d{0,5}$", replacement_string=""),
-            on_blur=self._on_change_padding_around,
+            on_change=self._on_change_padding_around,
             expand=True,
             value="0",
             suffix_text="pixel"
@@ -97,7 +95,7 @@ class UserInput(ft.Column):
             hint_text="Padding between watermarks in pixels. Padding may be decreased if the watermark can "
                       "otherwise not be placed.",
             input_filter=ft.InputFilter(allow=True, regex_string=r"^\d{0,5}$", replacement_string=""),
-            on_blur=self._on_change_padding_between,
+            on_change=self._on_change_padding_between,
             expand=True,
             value="0",
             suffix_text="pixel"
@@ -203,18 +201,25 @@ class UserInput(ft.Column):
         self.output_folder_text_field.update()
         self._page.client_storage.set("watermarker.output_folder", path)
 
-    def _on_change_name_extension(self, e: ft.ControlEvent):
+    def _on_blur_name_extension(self, e: ft.ControlEvent):
         self._marker.name_extension = e.control.value
         self._page.client_storage.set("watermarker.name_extension", e.control.value)
 
     def _on_change_padding_around(self, e: ft.ControlEvent):
-        self._marker.padding_around_watermarks = int(e.control.value)
-        # TODO Fix update when text is removed
+        if not e.data:
+            self._padding_around_text_field.value = "0"
+            self._padding_around_text_field.update()
+            e.data = "0"
+        self._marker.padding_around_watermarks = int(e.data)
         self._update_preview()
         self._page.client_storage.set("watermarker.padding_around", int(e.control.value))
 
     def _on_change_padding_between(self, e: ft.ControlEvent):
-        self._marker.padding_between_watermarks = int(e.control.value)
+        if not e.data:
+            self._padding_between_text_field.value = "0"
+            self._padding_between_text_field.update()
+            e.data = "0"
+        self._marker.padding_between_watermarks = int(e.data)
         self._update_preview()
         self._page.client_storage.set("watermarker.padding_between", int(e.control.value))
 
