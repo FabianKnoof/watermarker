@@ -19,7 +19,7 @@ class MarkerApp:
         self._logger = logger
 
         self._error_alert = ft.Banner(
-            content=ft.Text("Oops, something didn't go right. Please check the logs.", color=ft.colors.BLACK),
+            content=ft.Text("Oops, something didn't go right. Please check the log.", color=ft.colors.BLACK),
             leading=ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, color=ft.colors.AMBER),
             bgcolor=ft.colors.AMBER_100,
             actions=[ft.TextButton(
@@ -46,6 +46,7 @@ class MarkerApp:
                 vertical_alignment=ft.CrossAxisAlignment.START
             )
         )
+
     #     TODO Add Alert on exit if not IDLE
 
     def load_data(self):
