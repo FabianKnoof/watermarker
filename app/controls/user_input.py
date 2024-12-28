@@ -4,6 +4,7 @@ from pathlib import Path
 import flet as ft
 
 from controls.preview import Preview
+from helpers import s_word_multiples
 from marker import Marker
 
 
@@ -142,21 +143,20 @@ class UserInput(ft.Column):
             if self._marker.images:
                 self._update_preview()
 
-                self._set_images_text(e.path, len(self._marker.images))
-                self._safe_images_paths(e.path)
+                self._set_images_text()
+                self._safe_images_paths(self._marker.images)
             else:
-                self.images_text_field.error_text = "No images found in the folder"
+                self.images_text_field.error_text = "No usable images found in the folder"
                 self.images_text_field.update()
 
     def _on_images_picker_result(self, e: ft.FilePickerResultEvent) -> None:
-        # TODO Fix display not correct
         if e.files:
             self._marker.images = [file.path for file in e.files]
 
             self._update_preview()
 
-            self._set_images_text([file for file in e.files], len(e.files))
-            self._safe_images_paths(e.files)
+            self._set_images_text()
+            self._safe_images_paths(self._marker.images)
 
     def _on_watermark_picker_result(self, e: ft.FilePickerResultEvent) -> None:
         if e.files:
@@ -223,19 +223,17 @@ class UserInput(ft.Column):
         self._update_preview()
         self._page.client_storage.set("watermarker.padding_between", int(e.control.value))
 
-    def _set_images_text(self, images: list[dict] | str, images_amount: int) -> None:
-        if isinstance(images, list):
-            self.images_text_field.label = f"{images_amount} Images from {Path(images[0]["path"]).parent}"
-            self.images_text_field.value = "; ".join([file["name"] for file in images])
-        else:
-            self.images_text_field.label = f"{images_amount} images"
-            self.images_text_field.value = images
+    def _set_images_text(self) -> None:
+        parent_folder = Path(self._marker.images[0]).parent
+        self.images_text_field.label = (f"{len(self._marker.images)} image{s_word_multiples(self._marker.images)} from "
+                                        f"{parent_folder}")
+        self.images_text_field.value = "; ".join([Path(image).name for image in self._marker.images])
         self.images_text_field.error_text = ""
         self.images_text_field.update()
 
     def _update_preview(self) -> None:
         if self.images_text_field.value:
-            if self.watermark_text_field.value:
+            if self._marker.watermark_path:
                 self._preview.show_marked_image(self._marker.images[0])
             else:
                 self._preview.show_image(self._marker.images[0])
@@ -251,13 +249,10 @@ class UserInput(ft.Column):
         self._update_preview()
 
     def _load_images_paths(self) -> None:
-        if images_data := self._page.client_storage.get("watermarker.images"):
-            if isinstance(images_data, list):
-                self._marker.images = [file["path"] for file in images_data]
-            else:
-                self._marker.images = self._marker.find_images(images_data)
-
-            self._set_images_text(images_data, len(self._marker.images))
+        if images := self._page.client_storage.get("watermarker.images"):
+            self._marker.images = [image for image in images if Path(image).exists()]
+            if self._marker.images:
+                self._set_images_text()
 
     def _load_watermark_path(self) -> None:
         if watermark_path := self._page.client_storage.get("watermarker.watermark"):
@@ -288,5 +283,5 @@ class UserInput(ft.Column):
             self._padding_between_text_field.value = str(padding_between)
             self._padding_between_text_field.update()
 
-    def _safe_images_paths(self, paths: list[str] | str) -> None:
-        self._page.client_storage.set("watermarker.images", paths)
+    def _safe_images_paths(self, images: list[str]) -> None:
+        self._page.client_storage.set("watermarker.images", images)
