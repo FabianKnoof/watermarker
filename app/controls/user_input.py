@@ -141,10 +141,10 @@ class UserInput(ft.Column):
             self._marker.images = self._marker.find_images(e.path)
 
             if self._marker.images:
-                self._update_preview()
-
                 self._set_images_text()
                 self._safe_images_paths(self._marker.images)
+
+                self._preview.set_preview()
             else:
                 self.images_text_field.error_text = "No usable images found in the folder"
                 self.images_text_field.update()
@@ -153,10 +153,10 @@ class UserInput(ft.Column):
         if e.files:
             self._marker.images = [file.path for file in e.files]
 
-            self._update_preview()
-
             self._set_images_text()
             self._safe_images_paths(self._marker.images)
+
+            self._preview.set_preview()
 
     def _on_watermark_picker_result(self, e: ft.FilePickerResultEvent) -> None:
         if e.files:
@@ -164,9 +164,9 @@ class UserInput(ft.Column):
             self.watermark_text_field.value = e.files[0].path
             self.watermark_text_field.error_text = ""
             self.watermark_text_field.update()
-
             self._page.client_storage.set("watermarker.watermark", e.files[0].path)
-            self._update_preview()
+
+            self._preview.set_preview()
 
     def _on_output_folder_picker_result(self, e: ft.FilePickerResultEvent) -> None:
         if e.path:
@@ -211,8 +211,8 @@ class UserInput(ft.Column):
             self._padding_around_text_field.update()
             e.data = "0"
         self._marker.padding_around_watermarks = int(e.data)
-        self._update_preview()
         self._page.client_storage.set("watermarker.padding_around", int(e.control.value))
+        self._preview.set_preview()
 
     def _on_change_padding_between(self, e: ft.ControlEvent):
         if not e.data:
@@ -220,8 +220,8 @@ class UserInput(ft.Column):
             self._padding_between_text_field.update()
             e.data = "0"
         self._marker.padding_between_watermarks = int(e.data)
-        self._update_preview()
         self._page.client_storage.set("watermarker.padding_between", int(e.control.value))
+        self._preview.set_preview()
 
     def _set_images_text(self) -> None:
         parent_folder = Path(self._marker.images[0]).parent
@@ -231,22 +231,13 @@ class UserInput(ft.Column):
         self.images_text_field.error_text = ""
         self.images_text_field.update()
 
-    def _update_preview(self) -> None:
-        if self.images_text_field.value:
-            if self._marker.watermark_path:
-                self._preview.show_marked_image(self._marker.images[0])
-            else:
-                self._preview.show_image(self._marker.images[0])
-        else:
-            self._preview.show_image("assets/preview-placeholder.png")
-
     def load_data(self) -> None:
         self._load_images_paths()
         self._load_watermark_path()
         self._load_output_folder_path()
         self._load_name_extension()
         self._load_padding()
-        self._update_preview()
+        self._preview.set_preview()
 
     def _load_images_paths(self) -> None:
         if images := self._page.client_storage.get("watermarker.images"):

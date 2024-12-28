@@ -60,8 +60,7 @@ class MarkerRun(ft.Row):
 
         while self._marker.state == MarkerState.RUNNING:
             self._update_progress_display()
-            if self._marker.image_for_preview_base64:
-                self._preview.show_image_base64(self._marker.image_for_preview_base64)
+            self._preview.update_preview()
             sleep(self._UPDATE_INTERVAL)
 
         if self._marker.state == MarkerState.IDLE:
@@ -89,16 +88,16 @@ class MarkerRun(ft.Row):
         self._run(None, checks=False)
 
     def _start_progress_display(self):
-        self._preview.loading(True)
         self.controls = [self._progress_bar, self._progress_text, self._pause_button, self._cancel_button]
         self.update()
         self._update_progress_display()
+        self._preview.loading(True)
 
     def _update_progress_display(self) -> None:
         done = self._marker.amount_images_done()
         total = self._marker.amount_images_todo() + done
         self._progress_text.value = (f"{done:{len(str(total))}}/"
-                                     f"{total:{len(str(total))}} Images marked")
+                                     f"{total:{len(str(total))}} Image{'s' if total > 1 else ''} marked")
         self._progress_text.update()
         self._progress_bar.value = done / total
         self._progress_bar.update()
@@ -129,7 +128,7 @@ class MarkerRun(ft.Row):
         self.controls = [ft.Text(
             f"Paused ({self._marker.amount_images_done()}/"
             f"{self._marker.amount_images_todo() + self._marker.amount_images_done()} "
-            f"Images marked)"
+            f"Image{'s' if self._marker.amount_images_done() > 1 else ''} marked)"
         ), self._run_button, self._cancel_button]
         self.update()
         self._preview.loading(False)
@@ -163,8 +162,9 @@ class MarkerRun(ft.Row):
 
     def _finished(self, canceled: bool = False):
         title_text = "Canceled" if canceled else "Done"
-        content_text = (f"{'The process has been canceled. ' if canceled else ''}"
-                        f"{self._marker.amount_images_done()} images have been marked.")
+        content_text = (
+            f"{'The process has been canceled. ' if canceled else ''}{self._marker.amount_images_done()} image"
+            f"{'s' if self._marker.amount_images_done() > 1 else ''} have been marked.")
 
         alert = ft.AlertDialog(
             actions=[ft.TextButton("Ok", on_click=lambda _: self._page.close(alert)), ft.TextButton(
@@ -179,8 +179,7 @@ class MarkerRun(ft.Row):
         self._disable_user_input_fields(False)
         self.controls = [self._run_button]
         self.update()
-        if self._marker.image_for_preview_base64:
-            self._preview.show_image_base64(self._marker.image_for_preview_base64)
+        self._preview.update_preview()
         self._preview.loading(False)
 
     def _open_output_and_close_alert(self, alert: ft.AlertDialog):

@@ -45,7 +45,7 @@ class Marker:
         self._logger = logger
 
         self._state: MarkerState = MarkerState.IDLE
-        self.image_for_preview_base64: str | None = None
+        self.preview_image_base64: str | None = None
         self.UPDATE_INTERVAL = 0.2
 
         self.images: list[str] = []
@@ -60,6 +60,14 @@ class Marker:
     @property
     def state(self) -> MarkerState:
         return self._state
+
+    def setup_preview_image_base64(self) -> None:
+        if self.images:
+            if self.watermark_path:
+                self.preview_image_base64 = self._get_marked_image_base64(self.images[0])
+            else:
+                with Image.open(self.images[0]) as image:
+                    self.preview_image_base64 = self.convert_to_base64(image)
 
     def amount_images_todo(self) -> int:
         return len(self._images_todo)
@@ -107,8 +115,7 @@ class Marker:
                 self._logger
             ) for image in self._images_todo]
 
-            marked_image_base64 = self.image_for_preview_base64
-            # TODO Improve marked_image_base64 and preview assignment
+            marked_image_base64 = self.preview_image_base64
             while futures:
                 sleep(self.UPDATE_INTERVAL)
 
@@ -123,7 +130,7 @@ class Marker:
                         self._images_done.append(image_path)
                         self._images_todo.remove(image_path)
                 [futures.remove(finished_future) for finished_future in finished_futures]
-                self.image_for_preview_base64 = marked_image_base64
+                self.preview_image_base64 = marked_image_base64
 
                 if self.state == MarkerState.PAUSING:
                     self._state = MarkerState.PAUSED
@@ -140,9 +147,7 @@ class Marker:
                 images.append(dir_entry.path)
         return images
 
-    def get_preview_image_base64(self, image_path: str) -> str | None:
-        if not self.watermark_path:
-            return None
+    def _get_marked_image_base64(self, image_path: str) -> str | None:
         # noinspection PyBroadException
         try:
             with self._get_marked_image(

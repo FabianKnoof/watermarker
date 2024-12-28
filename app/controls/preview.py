@@ -17,24 +17,22 @@ class Preview(ft.Stack):
 
         self.alignment = ft.alignment.center
 
-    def show_image_base64(self, image_as_base64: str) -> None:
-        self._image.src_base64 = image_as_base64
-        self._image.update()
+    def set_preview(self) -> None:
+        self.loading(True)
+        self._marker.setup_preview_image_base64()
+        if self._marker.preview_image_base64:
+            self._image.src_base64 = self._marker.preview_image_base64
+            self._image.update()
+        self.loading(False)
 
-    def show_image(self, path: str) -> None:
-        self._image.src = path
-        self._image.update()
+    def update_preview(self) -> None:
+        if self._marker.preview_image_base64:
+            self._image.src_base64 = self._marker.preview_image_base64
+            self._image.update()
 
     def loading(self, value: bool) -> None:
         self._progress_ring.visible = value
         self._progress_ring.update()
-
-    def show_marked_image(self, image_path: str) -> None:
-        self.loading(True)
-        image_base64 = self._marker.get_preview_image_base64(image_path)
-        if image_base64:
-            self.show_image_base64(image_base64)
-        self.loading(False)
 
     def resize(self, width: int, height: int) -> None:
         self.width = width
