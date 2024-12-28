@@ -6,7 +6,7 @@ from flet.core.page import Page
 from controls.marker_run import MarkerRun
 from controls.preview import Preview
 from controls.user_input import UserInput
-from marker import Marker
+from marker import Marker, MarkerState
 
 
 class MarkerApp:
@@ -17,6 +17,9 @@ class MarkerApp:
         self._page = page
         self._marker = marker
         self._logger = logger
+
+        self._page.window.prevent_close = True
+        self._page.window.on_event = self.handle_window_event
 
         self._error_alert = ft.Banner(
             content=ft.Text("Oops, something didn't go right. Please check the log.", color=ft.colors.BLACK),
@@ -47,18 +50,27 @@ class MarkerApp:
             )
         )
 
-    #     TODO Add Alert on exit if not IDLE
-
     def load_data(self):
         self._user_input.load_data()
 
     def page_resized(self, e: ft.WindowResizeEvent):
+        #     TODO Improve resize
         self._preview.resize(
             int(e.width - self._user_input.width - self._padding), int(e.height - self._padding)
         )
         self._preview.update()
 
-    #     TODO Improve resize
+    def handle_window_event(self, e: ft.WindowEvent):
+        if e.data == "close":
+            if self._marker.state == MarkerState.RUNNING:
+                exit_while_running_alert = ft.AlertDialog(
+                    title=ft.Text("Watermarking is in progress. Do you want to stop it and close the app?"),
+                    actions=[ft.TextButton("Yes", on_click=lambda _: self._page.window.destroy()),
+                             ft.TextButton("No", on_click=lambda _: self._page.close(exit_while_running_alert))]
+                )
+                self._page.open(exit_while_running_alert)
+            else:
+                self._page.window.destroy()
 
     def error(self):
         self._page.open(self._error_alert)
