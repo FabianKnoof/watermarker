@@ -52,7 +52,7 @@ class MarkerApp:
             )
         )
 
-    def _load_data(self) -> None:
+    def load_data(self) -> None:
         self._load_images_paths()
         self._load_watermark_path()
         self._load_output_folder_path()
