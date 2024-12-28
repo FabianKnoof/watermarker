@@ -1,6 +1,6 @@
 import flet as ft
 
-from marker import Marker
+from src.marker import Marker
 
 
 class Preview(ft.Stack):
