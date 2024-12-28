@@ -22,7 +22,7 @@ def main(page: Page):
     marker = Marker(logger)
     marker_app = MarkerApp(page, marker, logger)
     logger.addHandler(MarkerLoggerHandler(log_file_name, marker_app))
-    marker_app.load_data()
+    marker_app._load_data()
 
 
 if __name__ == '__main__':

@@ -72,7 +72,7 @@ class UserInput(ft.Column):
             width=text_fields_width
         )
 
-        self._name_extension_text_field = ft.TextField(
+        self.name_extension_text_field = ft.TextField(
             label="Name extension",
             hint_text="Name extension will be added to the output images name",
             input_filter=ft.InputFilter(allow=True, regex_string=r"^[a-zA-Z-_0-9]*$", replacement_string=""),
@@ -80,7 +80,7 @@ class UserInput(ft.Column):
             expand=True,
             width=text_fields_width, )
 
-        self._padding_around_text_field = ft.TextField(
+        self.padding_around_text_field = ft.TextField(
             label="Padding around watermarks",
             hint_text="Padding around watermarks in pixels. Padding may be decreased if the watermark can "
                       "otherwise not be placed.",
@@ -91,7 +91,7 @@ class UserInput(ft.Column):
             suffix_text="pixel"
         )
 
-        self._padding_between_text_field = ft.TextField(
+        self.padding_between_text_field = ft.TextField(
             label="Padding between watermarks",
             hint_text="Padding between watermarks in pixels. Padding may be decreased if the watermark can "
                       "otherwise not be placed.",
@@ -128,9 +128,9 @@ class UserInput(ft.Column):
                 vertical_alignment=pick_buttons_cross_alignment
             )]
         ), ft.Row(
-            [self._name_extension_text_field, ft.Row([ft.Container()], width=pick_buttons_row_width)]
+            [self.name_extension_text_field, ft.Row([ft.Container()], width=pick_buttons_row_width)]
         ), ft.Row(
-            [self._padding_around_text_field, self._padding_between_text_field,
+            [self.padding_around_text_field, self.padding_between_text_field,
              ft.Row([ft.Container()], width=pick_buttons_row_width)]
         )]
 
@@ -141,7 +141,7 @@ class UserInput(ft.Column):
             self._marker.images = self._marker.find_images(e.path)
 
             if self._marker.images:
-                self._set_images_text()
+                self.set_images_text()
                 self._safe_images_paths(self._marker.images)
 
                 self._preview.set_preview()
@@ -153,7 +153,7 @@ class UserInput(ft.Column):
         if e.files:
             self._marker.images = [file.path for file in e.files]
 
-            self._set_images_text()
+            self.set_images_text()
             self._safe_images_paths(self._marker.images)
 
             self._preview.set_preview()
@@ -207,8 +207,8 @@ class UserInput(ft.Column):
 
     def _on_change_padding_around(self, e: ft.ControlEvent):
         if not e.data:
-            self._padding_around_text_field.value = "0"
-            self._padding_around_text_field.update()
+            self.padding_around_text_field.value = "0"
+            self.padding_around_text_field.update()
             e.data = "0"
         self._marker.padding_around_watermarks = int(e.data)
         self._page.client_storage.set("watermarker.padding_around", int(e.control.value))
@@ -216,63 +216,20 @@ class UserInput(ft.Column):
 
     def _on_change_padding_between(self, e: ft.ControlEvent):
         if not e.data:
-            self._padding_between_text_field.value = "0"
-            self._padding_between_text_field.update()
+            self.padding_between_text_field.value = "0"
+            self.padding_between_text_field.update()
             e.data = "0"
         self._marker.padding_between_watermarks = int(e.data)
         self._page.client_storage.set("watermarker.padding_between", int(e.control.value))
         self._preview.set_preview()
 
-    def _set_images_text(self) -> None:
+    def set_images_text(self) -> None:
         parent_folder = Path(self._marker.images[0]).parent
         self.images_text_field.label = (f"{len(self._marker.images)} image{s_word_multiples(self._marker.images)} from "
                                         f"{parent_folder}")
         self.images_text_field.value = "; ".join([Path(image).name for image in self._marker.images])
         self.images_text_field.error_text = ""
         self.images_text_field.update()
-
-    def load_data(self) -> None:
-        self._load_images_paths()
-        self._load_watermark_path()
-        self._load_output_folder_path()
-        self._load_name_extension()
-        self._load_padding()
-        self._preview.set_preview()
-
-    def _load_images_paths(self) -> None:
-        if images := self._page.client_storage.get("watermarker.images"):
-            self._marker.images = [image for image in images if Path(image).exists()]
-            if self._marker.images:
-                self._set_images_text()
-
-    def _load_watermark_path(self) -> None:
-        if watermark_path := self._page.client_storage.get("watermarker.watermark"):
-            self._marker.watermark_path = watermark_path
-            self.watermark_text_field.value = watermark_path
-            self.watermark_text_field.update()
-
-    def _load_output_folder_path(self) -> None:
-        if output_folder_path := self._page.client_storage.get("watermarker.output_folder"):
-            self._marker.output_folder = output_folder_path
-            self.output_folder_text_field.value = output_folder_path
-            self.output_folder_text_field.update()
-
-    def _load_name_extension(self) -> None:
-        if name_extension := self._page.client_storage.get("watermarker.name_extension"):
-            self._marker.name_extension = name_extension
-            self._name_extension_text_field.value = name_extension
-            self._name_extension_text_field.update()
-
-    def _load_padding(self):
-        if padding_around := self._page.client_storage.get("watermarker.padding_around"):
-            self._marker.padding_around_watermarks = padding_around
-            self._padding_around_text_field.value = str(padding_around)
-            self._padding_around_text_field.update()
-
-        if padding_between := self._page.client_storage.get("watermarker.padding_between"):
-            self._marker.padding_between_watermarks = padding_between
-            self._padding_between_text_field.value = str(padding_between)
-            self._padding_between_text_field.update()
 
     def _safe_images_paths(self, images: list[str]) -> None:
         self._page.client_storage.set("watermarker.images", images)

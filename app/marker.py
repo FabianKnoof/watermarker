@@ -69,8 +69,16 @@ class Marker:
                 with Image.open(self.images[0]) as image:
                     self.preview_image_base64 = self.convert_to_base64(image)
 
+    @property
+    def images_todo(self):
+        return self._images_todo
+
     def amount_images_todo(self) -> int:
         return len(self._images_todo)
+
+    @property
+    def images_done(self):
+        return self._images_done
 
     def amount_images_done(self) -> int:
         return len(self._images_done)
@@ -101,6 +109,13 @@ class Marker:
                 raise StateChangeError(
                     f"Can't do state change from {self._state} to {new_state}", self._state, new_state
                 )
+
+    def resume_after_holiday(self, images_todo: list[str], images_done: list[str]) -> None:
+        self._images_todo = images_todo
+        self._images_done = images_done
+        self._state = MarkerState.PAUSED
+        if self.watermark_path:
+            self.preview_image_base64 = self._get_marked_image_base64(self.images_done[-1])
 
     def _run(self) -> None:
         with ThreadPoolExecutor(max_workers=self._max_workers) as executor:

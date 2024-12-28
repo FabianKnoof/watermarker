@@ -10,4 +10,4 @@ class MarkerLoggerHandler(logging.FileHandler):
 
     def emit(self, record):
         if record.levelno >= logging.ERROR:
-            self._app.error()
+            self._app._error()

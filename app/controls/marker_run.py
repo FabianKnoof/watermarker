@@ -23,7 +23,7 @@ class MarkerRun(ft.Row):
         self._UPDATE_INTERVAL = 0.2
 
         self._run_button = ft.FilledButton("Run", icon=ft.Icons.PLAY_CIRCLE, on_click=self._run, width=150)
-        self._pause_button = ft.FilledButton(content=ft.Icon(ft.Icons.PAUSE_CIRCLE), on_click=self._pause)
+        self._pause_button = ft.FilledButton(content=ft.Icon(ft.Icons.PAUSE_CIRCLE), on_click=self.pause)
         self._cancel_button = ft.FilledButton(
             content=ft.Icon(ft.Icons.STOP_CIRCLE), on_click=lambda _: self._cancel_alert()
         )
@@ -34,11 +34,13 @@ class MarkerRun(ft.Row):
 
         self.alignment = ft.MainAxisAlignment.CENTER
 
-    def _run(self, _, checks: bool = True):
+    def _run(self, _, checks: bool = True) -> None:
         if checks:
             if self._missing_user_input():
                 return
-            if not self._user_input.output_folder_is_empty(self._marker.output_folder):
+            if self._marker.state != MarkerState.PAUSED and not self._user_input.output_folder_is_empty(
+                    self._marker.output_folder
+            ):
                 output_folder_not_empty_alert = ft.AlertDialog(
                     title=ft.Text("Output folder is not empty. Do you still want to use it?"), content=ft.Text(
                         "If resulting images have the same name as images already in the output folder, "
@@ -102,7 +104,7 @@ class MarkerRun(ft.Row):
         self._progress_bar.value = done / total
         self._progress_bar.update()
 
-    def _pause(self, _):
+    def pause(self, _=None) -> None:
         try:
             self._marker.set_state("pause")
         except StateChangeError as e:
@@ -121,9 +123,11 @@ class MarkerRun(ft.Row):
             self._finished()
             return
 
+        self.paused()
+
+    def paused(self):
         self._pause_button.disabled = False
         self._cancel_button.disabled = False
-
         self._run_button.text = "Continue"
         self.controls = [ft.Text(
             f"Paused ({self._marker.amount_images_done()}/"
@@ -133,9 +137,9 @@ class MarkerRun(ft.Row):
         self.update()
         self._preview.loading(False)
 
-    def _cancel_alert(self):
+    def _cancel_alert(self) -> None:
         alert = ft.AlertDialog(
-            actions=[ft.TextButton("Yes", on_click=lambda _: self._cancel(alert)),
+            actions=[ft.TextButton("Yes", on_click=lambda _: self.cancel(alert)),
                      ft.TextButton("No", on_click=lambda _: self._page.close(alert))],
             title=ft.Text("Cancel"),
             content=ft.Text("Do you really want to cancel the process?"),
@@ -143,7 +147,7 @@ class MarkerRun(ft.Row):
         )
         self._page.open(alert)
 
-    def _cancel(self, alert: ft.AlertDialog):
+    def cancel(self, alert: ft.AlertDialog) -> None:
         self._page.close(alert)
         try:
             self._marker.set_state("cancel")
@@ -160,7 +164,7 @@ class MarkerRun(ft.Row):
 
         self._finished(canceled=True)
 
-    def _finished(self, canceled: bool = False):
+    def _finished(self, canceled: bool = False) -> None:
         title_text = "Canceled" if canceled else "Done"
         content_text = (
             f"{'The process has been canceled. ' if canceled else ''}{self._marker.amount_images_done()} image"
@@ -182,7 +186,7 @@ class MarkerRun(ft.Row):
         self._preview.update_preview()
         self._preview.loading(False)
 
-    def _open_output_and_close_alert(self, alert: ft.AlertDialog):
+    def _open_output_and_close_alert(self, alert: ft.AlertDialog) -> None:
         Popen(r"explorer " + self._user_input.output_folder_text_field.value)
         self._page.close(alert)
 
@@ -198,7 +202,7 @@ class MarkerRun(ft.Row):
         else:
             return f"{int(seconds)} sec"
 
-    def _disable_user_input_fields(self, disabled: bool):
+    def _disable_user_input_fields(self, disabled: bool) -> None:
         for control in self._user_input.controls:
             control.disabled = disabled
             control.update()
