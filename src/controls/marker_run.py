@@ -38,6 +38,7 @@ class MarkerRun(ft.Row):
         if checks:
             if self._missing_user_input():
                 return
+            # TODO Check for output folder empty on restart after holiday
             if self._marker.state != MarkerState.PAUSED and not self._user_input.output_folder_is_empty(
                     self._marker.output_folder
             ):
