@@ -4,9 +4,9 @@ from time import sleep
 
 import flet as ft
 
-from src.controls.preview import Preview
-from src.controls.user_input import UserInput
-from src.marker import Marker, MarkerState, StateChangeError
+from controls.preview import Preview
+from controls.user_input import UserInput
+from marker import Marker, MarkerState, StateChangeError
 
 
 class MarkerRun(ft.Row):

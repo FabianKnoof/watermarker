@@ -3,9 +3,9 @@ from pathlib import Path
 
 import flet as ft
 
-from src.controls.preview import Preview
-from src.helpers import s_word_multiples
-from src.marker import Marker
+from controls.preview import Preview
+from helpers import s_word_multiples
+from marker import Marker
 
 
 class UserInput(ft.Column):
