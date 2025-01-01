@@ -1,0 +1,7 @@
+name: flet build
+on: workflow_dispatch
+jobs:
+  flet-build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Hello World"
