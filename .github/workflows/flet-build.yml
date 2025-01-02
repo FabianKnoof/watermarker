@@ -16,5 +16,9 @@ jobs:
       - run: mkdir flutter
       - run: tar -xf flutter_linux_3.27.1-stable.tar.xz -C flutter/
       - run: echo $SHELL
-      - run: echo 'export PATH="~/development/flutter/bin:$PATH"' >> ~/.profile
+      - run: echo $0
+      - run: echo 'export PATH="/flutter/flutter/bin:$PATH"' >> ~/.bash_profile
+      - run: ls -A
+      - run: cd flutter/
+      - run: ls -A
       - run: flutter doctor
