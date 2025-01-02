@@ -15,5 +15,6 @@ jobs:
       - run: wget https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.27.1-stable.tar.xz
       - run: mkdir flutter
       - run: tar -xf flutter_linux_3.27.1-stable.tar.xz -C flutter/
-      - run: echo 'export PATH="flutter/flutter/bin:$PATH"' >> ~/.bash_profile
+      - run: echo $SHELL
+      - run: echo 'export PATH="~/development/flutter/bin:$PATH"' >> ~/.profile
       - run: flutter doctor
