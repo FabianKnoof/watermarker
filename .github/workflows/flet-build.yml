@@ -4,4 +4,16 @@ jobs:
   flet-build:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Hello World"
+      - run: sudo apt-get update -y && sudo apt-get upgrade -y;
+      - run: sudo apt-get install -y curl git unzip xz-utils zip libglu1-mesa
+      - run: |
+          sudo apt-get install \
+          clang cmake git \
+          ninja-build pkg-config \
+          libgtk-3-dev liblzma-dev \
+          libstdc++-12-dev
+      - run: wget https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.27.1-stable.tar.xz
+      - run: mkdir flutter
+      - run: tar -xf flutter_linux_3.27.1-stable.tar.xz -C flutter/
+      - run: echo 'export PATH="flutter/flutter/bin:$PATH"' >> ~/.bash_profile
+      - run: flutter doctor
